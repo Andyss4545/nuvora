@@ -358,7 +358,7 @@ button {
 
 .hero-benefits {
   position: absolute;
-  left: -55px;
+  left: 0;
   bottom: 36px;
   width: min(490px, 70%);
   background: rgba(255, 255, 255, 0.94);
@@ -2611,4 +2611,17 @@ button {
     transform: none !important;
     opacity: 1 !important;
   }
+}
+
+
+/* PERFORMANCE GUARDRAILS */
+.hero-cinema-pin, .story-stage, .dashboard-shell, .why-visual, .testimonial-photo {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+@media (max-width: 1199px) {
+  .hero-cinema-pin, .story-stage { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-cinema-pin, .story-stage, .dashboard-shell, .why-visual, .testimonial-photo { transform: none !important; }
 }
