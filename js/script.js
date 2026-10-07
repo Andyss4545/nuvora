@@ -2,15 +2,18 @@
   'use strict';
   const $ = (s, c = document) => c.querySelector(s);
   const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  const largeMotion = window.innerWidth >= 1200 && !coarsePointer && !reduceMotion;
 
   window.addEventListener('load', () => {
     const loader = $('.site-loader');
     if (loader) {
       setTimeout(() => {
-        loader.style.transition = 'opacity .55s ease';
+        loader.style.transition = 'opacity .45s ease';
         loader.style.opacity = '0';
-        setTimeout(() => loader.remove(), 600);
-      }, 350);
+        setTimeout(() => loader.remove(), 500);
+      }, 250);
     }
   });
 
@@ -40,13 +43,31 @@
     const a = e.target.closest('a[href^="#"]');
     if (!a) return;
     const id = a.getAttribute('href');
-    if (id.length > 1 && document.querySelector(id)) {
+    const target = id.length > 1 ? document.querySelector(id) : null;
+    if (target) {
       e.preventDefault();
-      document.querySelector(id).scrollIntoView({behavior:'smooth', block:'start'});
+      target.scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block:'start'});
       if (mobileNav) mobileNav.style.display = 'none';
       menu?.setAttribute('aria-expanded', 'false');
     }
   });
+
+  // Lightweight reveal for all pages. No GSAP is required for internal pages.
+  const reveal = $$('.reveal-up');
+  if (reduceMotion || !('IntersectionObserver' in window)) {
+    reveal.forEach(el => { el.style.opacity = '1'; el.style.transform = 'none'; });
+  } else {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.style.transition = 'opacity .65s ease, transform .65s cubic-bezier(.22,1,.36,1)';
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+        io.unobserve(entry.target);
+      });
+    }, {rootMargin:'0px 0px -10% 0px', threshold:.08});
+    reveal.forEach(el => io.observe(el));
+  }
 
   const steps = $$('.story-step');
   const scenes = $$('.story-scene');
@@ -59,499 +80,143 @@
   if (window.gsap && window.ScrollTrigger) {
     gsap.registerPlugin(ScrollTrigger);
 
-    gsap.utils.toArray('.reveal-up').forEach(el => {
-      gsap.to(el, {opacity:1, y:0, duration:.8, ease:'power3.out', scrollTrigger:{trigger:el,start:'top 88%',once:true}});
-    });
-
-    /* Cinematic hero: same pinned, scrubbed scene choreography as the experimental homepage. */
-    const heroCinema = $('.hero-cinema');
-    const heroScenes = $$('.hero-scene', heroCinema || document);
-    const heroIndexes = $$('.hero-scene-index span', heroCinema || document);
-
-    if (heroCinema && heroScenes.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      const heroTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: heroCinema,
-          start: 'top top',
-          end: 'bottom bottom',
-          scrub: 1
-        }
+    // Only large desktop gets the heavy cinematic timelines.
+    if (largeMotion) {
+      gsap.utils.toArray('.reveal-up').forEach(el => {
+        gsap.to(el, {opacity:1, y:0, duration:.7, ease:'power3.out', scrollTrigger:{trigger:el,start:'top 88%',once:true}});
       });
 
-      heroScenes.forEach((scene, i) => {
-        const next = heroScenes[i + 1];
-        heroTl.to(scene, {opacity:1, visibility:'visible', duration:.08}, i === 0 ? 0 : i * .25);
+      const heroCinema = $('.hero-cinema');
+      const heroScenes = $$('.hero-scene', heroCinema || document);
+      const heroIndexes = $$('.hero-scene-index span', heroCinema || document);
 
-        if (i < heroScenes.length - 1) {
-          heroTl
-            .to(scene.querySelector('.hero-scene-copy'), {y:-35, opacity:0, duration:.12}, i * .25 + .16)
-            .to(scene.querySelector('.hero-scene-card'), {y:-25, opacity:0, duration:.12}, i * .25 + .16)
-            .to(next, {opacity:1, visibility:'visible', duration:.14}, i * .25 + .22)
-            .fromTo(next.querySelector('.hero-scene-copy'), {y:40, opacity:0}, {y:0, opacity:1, duration:.14}, i * .25 + .22)
-            .fromTo(next.querySelector('.hero-scene-card'), {y:35, opacity:0}, {y:'-50%', opacity:1, duration:.14}, i * .25 + .22)
-            .to(next.querySelector('.hero-scene-bg'), {scale:1, duration:.25, ease:'none'}, i * .25 + .22)
-            .call(() => {
-              heroIndexes.forEach((x,n) => x.classList.toggle('active', n === i + 1));
-            }, [], i * .25 + .25);
-        }
-      });
-
-      // Keep the cinematic hero in sync when the viewport is resized
-      // (for example, when a desktop browser is dragged to mobile width).
-      let heroResizeTimer;
-      window.addEventListener('resize', () => {
-        clearTimeout(heroResizeTimer);
-        heroResizeTimer = setTimeout(() => ScrollTrigger.refresh(), 120);
-      }, { passive: true });
-    } else if (heroScenes.length) {
-      heroScenes.forEach((scene, i) => scene.classList.toggle('is-active', i === 0));
-    }
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    /* =====================================================
-       HOW IT WORKS: cinematic pinned storytelling
-       Desktop/tablet gets the immersive sequence. Mobile keeps
-       natural scrolling and uses lightweight scene reveals.
-    ===================================================== */
-    const story = $('.story');
-    const storyStage = $('.story-stage');
-    const storyCopy = $('.story-copy');
-    const storyVisual = $('.story-visual');
-    const storyScenes = $$('.story-scene');
-
-    if (story && storyStage && !reduceMotion && window.innerWidth > 750) {
-      const storyTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: story,
-          start: 'top top',
-          end: '+=2200',
-          pin: storyStage,
-          scrub: 1,
-          anticipatePin: 1,
-          invalidateOnRefresh: true
-        }
-      });
-
-      storyScenes.forEach((scene, i) => {
-        const image = scene.querySelector('.scene-photo, .scene-panel');
-        const isFirst = i === 0;
-        const at = i * 0.25;
-
-        storyTl
-          .to(scene, {
-            opacity: 1,
-            scale: 1,
-            duration: isFirst ? .18 : .14,
-            ease: 'power2.out'
-          }, at)
-          .fromTo(image,
-            { scale: 1.08, y: 24 },
-            { scale: 1, y: 0, duration: .25, ease: 'none' },
-            at
-          );
-
-        if (i < storyScenes.length - 1) {
-          storyTl
-            .to(scene, { opacity: 0, scale: .96, duration: .12 }, at + .19)
-            .to(storyScenes[i + 1], { opacity: 1, scale: 1, duration: .14 }, at + .22)
-            .fromTo(storyScenes[i + 1].querySelector('.scene-card, .scene-panel, .scene-photo'),
-              { scale: 1.08, y: 24 },
-              { scale: 1, y: 0, duration: .22, ease: 'none' },
-              at + .22
-            );
-        }
-      });
-
-      ScrollTrigger.create({
-        trigger: story,
-        start: 'top top',
-        end: '+=2200',
-        scrub: 1,
-        onUpdate: self => {
-          const index = Math.min(3, Math.floor(self.progress * 4));
-          activateStep(index);
-          if (storyCopy) gsap.to(storyCopy, { y: self.progress * -28, duration: .2, overwrite: true });
-          if (storyVisual) gsap.to(storyVisual, { y: self.progress * 18, duration: .2, overwrite: true });
-        }
-      });
-    } else if (storyScenes.length) {
-      storyScenes.forEach((scene, i) => {
-        scene.classList.toggle('active', i === 0);
-        gsap.set(scene, { clearProps: 'transform' });
-      });
-    }
-
-    /* =====================================================
-       DASHBOARD: data-driven cinematic reveal
-    ===================================================== */
-    const dashboard = $('.dashboard');
-    const dashboardIntro = $('.dashboard-intro');
-    const dashboardShell = $('.dashboard-shell');
-    const dashboardCards = $$('.score-card, .health-list, .chart-card');
-    const ring = $('.score-ring');
-    const number = $('#scoreNumber');
-    const chart = $('#chartLine');
-    const point = $('#chartPoint');
-
-    if (dashboard && dashboardShell && !reduceMotion) {
-      gsap.fromTo(dashboardIntro,
-        { y: 70, opacity: .15 },
-        { y: 0, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: dashboard,
-          start: 'top 90%',
-          end: 'top 42%',
-          scrub: 1
-        }}
-      );
-
-      gsap.fromTo(dashboardShell,
-        { y: 90, scale: .94, opacity: .35 },
-        { y: 0, scale: 1, opacity: 1, ease: 'power2.out', scrollTrigger: {
-          trigger: dashboardShell,
-          start: 'top 92%',
-          end: 'top 55%',
-          scrub: 1
-        }}
-      );
-
-      dashboardCards.forEach((card, i) => {
-        gsap.fromTo(card,
-          { y: 45 + i * 10, opacity: .2 },
-          { y: 0, opacity: 1, ease: 'power2.out', scrollTrigger: {
-            trigger: dashboardShell,
-            start: 'top 76%',
-            end: 'top 42%',
-            scrub: 1
-          }}
-        );
-      });
-
-      if (ring && number) {
-        ScrollTrigger.create({
-          trigger: dashboardShell,
-          start: 'top 72%',
-          once: true,
-          onEnter: () => {
-            let n = 0;
-            const timer = setInterval(() => {
-              n++;
-              number.textContent = n;
-              if (n >= 84) clearInterval(timer);
-            }, 18);
-            ring.style.transition = 'background 1.4s ease';
-            requestAnimationFrame(() => {
-              ring.style.background = 'conic-gradient(var(--teal) 302deg,#dce6e3 302deg)';
-            });
-            if (chart) {
-              const length = chart.getTotalLength();
-              chart.style.strokeDasharray = length;
-              chart.style.strokeDashoffset = length;
-              chart.getBoundingClientRect();
-              chart.style.transition = 'stroke-dashoffset 1.8s ease';
-              chart.style.strokeDashoffset = '0';
-            }
-            if (point) {
-              point.style.opacity = '0';
-              setTimeout(() => point.style.opacity = '1', 1200);
-            }
+      if (heroCinema && heroScenes.length) {
+        const heroTl = gsap.timeline({
+          scrollTrigger: { trigger: heroCinema, start:'top top', end:'bottom bottom', scrub:1 }
+        });
+        heroScenes.forEach((scene, i) => {
+          const next = heroScenes[i + 1];
+          heroTl.to(scene, {opacity:1, visibility:'visible', duration:.08}, i === 0 ? 0 : i * .25);
+          if (i < heroScenes.length - 1) {
+            heroTl
+              .to(scene.querySelector('.hero-scene-copy'), {y:-35, opacity:0, duration:.12}, i*.25+.16)
+              .to(scene.querySelector('.hero-scene-card'), {y:-25, opacity:0, duration:.12}, i*.25+.16)
+              .to(next, {opacity:1, visibility:'visible', duration:.14}, i*.25+.22)
+              .fromTo(next.querySelector('.hero-scene-copy'), {y:40, opacity:0}, {y:0, opacity:1, duration:.14}, i*.25+.22)
+              .fromTo(next.querySelector('.hero-scene-card'), {y:35, opacity:0}, {y:'-50%', opacity:1, duration:.14}, i*.25+.22)
+              .to(next.querySelector('.hero-scene-bg'), {scale:1, duration:.25, ease:'none'}, i*.25+.22)
+              .call(() => heroIndexes.forEach((x,n) => x.classList.toggle('active', n === i+1)), [], i*.25+.25);
           }
         });
+      } else if (heroScenes.length) {
+        heroScenes.forEach((scene,i) => scene.classList.toggle('is-active', i===0));
+      }
+
+      const story = $('.story');
+      const storyStage = $('.story-stage');
+      const storyScenes = $$('.story-scene');
+      if (story && storyStage && storyScenes.length) {
+        const storyTl = gsap.timeline({
+          scrollTrigger: {trigger:story,start:'top top',end:'+=2200',pin:storyStage,scrub:1,anticipatePin:1,invalidateOnRefresh:true}
+        });
+        storyScenes.forEach((scene,i) => {
+          const image = scene.querySelector('.scene-photo, .scene-panel');
+          const at = i*.25;
+          storyTl.to(scene,{opacity:1,scale:1,duration:i===0?.18:.14,ease:'power2.out'},at);
+          if (image) storyTl.fromTo(image,{scale:1.08,y:24},{scale:1,y:0,duration:.25,ease:'none'},at);
+          if (i < storyScenes.length-1) {
+            storyTl.to(scene,{opacity:0,scale:.96,duration:.12},at+.19)
+              .to(storyScenes[i+1],{opacity:1,scale:1,duration:.14},at+.22)
+              .fromTo(storyScenes[i+1].querySelector('.scene-card,.scene-panel,.scene-photo'),{scale:1.08,y:24},{scale:1,y:0,duration:.22,ease:'none'},at+.22)
+              .call(()=>activateStep(i+1),[],at+.25);
+          }
+        });
+      } else if (storyScenes.length) {
+        storyScenes.forEach((scene,i)=>scene.classList.toggle('active',i===0));
+      }
+
+      // Dashboard: keep the data reveal, but use a small number of transforms.
+      const dashboard = $('.dashboard');
+      const dashboardIntro = $('.dashboard-intro');
+      const dashboardShell = $('.dashboard-shell');
+      const dashboardCards = $$('.score-card, .health-list, .chart-card');
+      const ring = $('.score-ring');
+      const number = $('#scoreNumber');
+      const chart = $('#chartLine');
+      const point = $('#chartPoint');
+      if (dashboard && dashboardShell) {
+        if (dashboardIntro) gsap.fromTo(dashboardIntro,{y:45,opacity:.2},{y:0,opacity:1,ease:'none',scrollTrigger:{trigger:dashboard,start:'top 88%',end:'top 45%',scrub:1}});
+        gsap.fromTo(dashboardShell,{y:55,scale:.97,opacity:.45},{y:0,scale:1,opacity:1,ease:'power2.out',scrollTrigger:{trigger:dashboardShell,start:'top 90%',end:'top 55%',scrub:1}});
+        dashboardCards.forEach((card,i)=>gsap.fromTo(card,{y:25+i*5,opacity:.25},{y:0,opacity:1,ease:'power2.out',scrollTrigger:{trigger:dashboardShell,start:'top 78%',end:'top 52%',scrub:1}}));
+        if (ring && number) {
+          ScrollTrigger.create({trigger:dashboardShell,start:'top 72%',once:true,onEnter:()=>{
+            let n=0;
+            const timer=setInterval(()=>{number.textContent=++n;if(n>=84)clearInterval(timer)},18);
+            ring.style.transition='background 1.2s ease';
+            requestAnimationFrame(()=>ring.style.background='conic-gradient(var(--teal) 302deg,#dce6e3 302deg)');
+            if(chart){const length=chart.getTotalLength();chart.style.strokeDasharray=length;chart.style.strokeDashoffset=length;requestAnimationFrame(()=>{chart.style.transition='stroke-dashoffset 1.6s ease';chart.style.strokeDashoffset='0'})}
+            if(point){point.style.opacity='0';setTimeout(()=>point.style.opacity='1',1100)}
+          }});
+        }
+      }
+
+      const why = $('.why'), whyContent=$('.why-content'), whyVisual=$('.why-visual'), whyPhoto=$('.why-photo'), stats=$$('.stats-grid > div');
+      if (why) {
+        if(whyContent) gsap.fromTo(whyContent,{x:-45,opacity:.25},{x:0,opacity:1,ease:'none',scrollTrigger:{trigger:why,start:'top 82%',end:'top 38%',scrub:1}});
+        if(whyVisual) gsap.fromTo(whyVisual,{x:45,y:45,opacity:.2},{x:0,y:0,opacity:1,ease:'none',scrollTrigger:{trigger:why,start:'top 82%',end:'top 35%',scrub:1}});
+        if(whyPhoto) gsap.fromTo(whyPhoto,{scale:1.08},{scale:1,ease:'none',scrollTrigger:{trigger:whyPhoto,start:'top 90%',end:'bottom 20%',scrub:1}});
+        stats.forEach(stat=>gsap.fromTo(stat,{y:25,opacity:.2},{y:0,opacity:1,ease:'power2.out',scrollTrigger:{trigger:stat,start:'top 90%',end:'top 66%',scrub:1}}));
+      }
+
+      const services=$('.services'), serviceCards=$$('.service-card');
+      if(services && serviceCards.length){
+        serviceCards.forEach((card,i)=>{
+          const direction=i%2===0?1:-1;
+          gsap.fromTo(card,{y:45,x:direction*20,rotate:direction*.4,opacity:.2,scale:.98},{y:0,x:0,rotate:0,opacity:1,scale:1,ease:'power2.out',scrollTrigger:{trigger:card,start:'top 92%',end:'top 64%',scrub:1,invalidateOnRefresh:true}});
+        });
+      }
+
+      const testimonial=$('.testimonial'), testimonialPhoto=$('.testimonial-photo'), testimonialCopy=$('.testimonial-copy');
+      if(testimonial){
+        if(testimonialPhoto) gsap.fromTo(testimonialPhoto,{y:45,scale:1.05,opacity:.3},{y:0,scale:1,opacity:1,ease:'none',scrollTrigger:{trigger:testimonial,start:'top 88%',end:'center 45%',scrub:1}});
+        if(testimonialCopy) gsap.fromTo(testimonialCopy,{x:40,opacity:.25},{x:0,opacity:1,ease:'none',scrollTrigger:{trigger:testimonial,start:'top 84%',end:'center 42%',scrub:1}});
+      }
+
+      const finalCta=$('.final-cta'), ctaInner=$('.cta-inner'), benefitStrip=$('.benefit-strip');
+      if(finalCta){
+        if(ctaInner) gsap.fromTo(ctaInner,{y:45,opacity:.2,scale:.985},{y:0,opacity:1,scale:1,ease:'none',scrollTrigger:{trigger:finalCta,start:'top 88%',end:'top 44%',scrub:1}});
+        if(benefitStrip) gsap.fromTo(benefitStrip,{y:25,opacity:.2},{y:0,opacity:1,ease:'none',scrollTrigger:{trigger:benefitStrip,start:'top 92%',end:'top 66%',scrub:1}});
       }
     }
 
-    /* =====================================================
-       WHY NUVORA: editorial image + stat choreography
-    ===================================================== */
-    const why = $('.why');
-    const whyContent = $('.why-content');
-    const whyVisual = $('.why-visual');
-    const whyPhoto = $('.why-photo');
-    const stats = $$('.stats-grid > div');
-
-    if (why && !reduceMotion) {
-      if (whyContent) gsap.fromTo(whyContent,
-        { x: -70, opacity: .2 },
-        { x: 0, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: why, start: 'top 85%', end: 'top 35%', scrub: 1
-        }}
-      );
-      if (whyVisual) gsap.fromTo(whyVisual,
-        { x: 70, y: 80, opacity: .15 },
-        { x: 0, y: 0, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: why, start: 'top 85%', end: 'top 30%', scrub: 1
-        }}
-      );
-      if (whyPhoto) gsap.fromTo(whyPhoto,
-        { scale: 1.12 },
-        { scale: 1, ease: 'none', scrollTrigger: {
-          trigger: whyPhoto, start: 'top 90%', end: 'bottom 20%', scrub: 1
-        }}
-      );
-      stats.forEach((stat, i) => gsap.fromTo(stat,
-        { y: 45, opacity: .15 },
-        { y: 0, opacity: 1, ease: 'power2.out', scrollTrigger: {
-          trigger: stat, start: 'top 92%', end: 'top 65%', scrub: 1
-        }}
-      ));
-    }
-
-    /* =====================================================
-       SERVICES: cinematic editorial card progression
-    ===================================================== */
-    const services = $('.services');
-    const serviceCards = $$('.service-card');
-    if (services && serviceCards.length && !reduceMotion) {
-      serviceCards.forEach((card, i) => {
-        const direction = i % 2 === 0 ? 1 : -1;
-        gsap.fromTo(card,
-          { y: 70, x: direction * 35, rotate: direction * .7, opacity: .12, scale: .96 },
-          { y: 0, x: 0, rotate: 0, opacity: 1, scale: 1, ease: 'power2.out', scrollTrigger: {
-            trigger: card,
-            start: 'top 94%',
-            end: 'top 62%',
-            scrub: 1,
-            invalidateOnRefresh: true
-          }}
-        );
-        gsap.to(card, {
-          backgroundPosition: `center ${i % 2 === 0 ? '46%' : '54%'}`,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: card,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1
-          }
-        });
-      });
-    }
-
-    /* =====================================================
-       TESTIMONIAL: slow cinematic image/text separation
-    ===================================================== */
-    const testimonial = $('.testimonial');
-    const testimonialPhoto = $('.testimonial-photo');
-    const testimonialCopy = $('.testimonial-copy');
-    if (testimonial && !reduceMotion) {
-      if (testimonialPhoto) gsap.fromTo(testimonialPhoto,
-        { y: 80, scale: 1.08, opacity: .2 },
-        { y: 0, scale: 1, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: testimonial, start: 'top 90%', end: 'center 45%', scrub: 1
-        }}
-      );
-      if (testimonialCopy) gsap.fromTo(testimonialCopy,
-        { x: 80, opacity: .15 },
-        { x: 0, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: testimonial, start: 'top 85%', end: 'center 42%', scrub: 1
-        }}
-      );
-    }
-
-    /* =====================================================
-       FINAL CTA: gentle cinematic closing movement
-    ===================================================== */
-    const finalCta = $('.final-cta');
-    const ctaInner = $('.cta-inner');
-    const benefitStrip = $('.benefit-strip');
-    if (finalCta && !reduceMotion) {
-      if (ctaInner) gsap.fromTo(ctaInner,
-        { y: 70, opacity: .15, scale: .97 },
-        { y: 0, opacity: 1, scale: 1, ease: 'none', scrollTrigger: {
-          trigger: finalCta, start: 'top 90%', end: 'top 42%', scrub: 1
-        }}
-      );
-      if (benefitStrip) gsap.fromTo(benefitStrip,
-        { y: 45, opacity: .1 },
-        { y: 0, opacity: 1, ease: 'none', scrollTrigger: {
-          trigger: benefitStrip, start: 'top 94%', end: 'top 65%', scrub: 1
-        }}
-      );
-    }
-
-    /* =====================================================
-       INTERNAL PAGES: shared cinematic editorial system
-       Keeps desktop immersive while mobile stays touch-first.
-    ===================================================== */
+    // Simple internal pages: one-time reveals only. No per-frame scrub effects.
     if (document.body.classList.contains('internal-page')) {
       document.body.classList.add('cinematic-ready');
-
-      const internalHero = $('.page-hero');
-      const heroCopy = internalHero ? internalHero.querySelector('.page-hero-grid > div:first-child') : null;
-      const heroMedia = internalHero ? internalHero.querySelector('.page-hero-media') : null;
-
-      if (!reduceMotion) {
-        if (heroCopy) {
-          gsap.fromTo(heroCopy,
-            { y: 55, opacity: 0 },
-            { y: 0, opacity: 1, duration: 1.05, ease: 'power3.out', delay: .08 }
-          );
-        }
-        if (heroMedia) {
-          gsap.fromTo(heroMedia,
-            { y: 55, opacity: 0, scale: .965 },
-            { y: 0, opacity: 1, scale: 1, duration: 1.15, ease: 'power3.out', delay: .16 }
-          );
-          const heroImg = heroMedia.querySelector('img');
-          if (heroImg) {
-            gsap.fromTo(heroImg,
-              { scale: 1.12 },
-              { scale: 1.02, duration: 1.8, ease: 'power2.out', delay: .05 }
-            );
-          }
-        }
-
-        /* Every major content section gets a restrained editorial entrance. */
-        const sections = $$('.internal-page main > section:not(.page-hero)');
-        sections.forEach((section, index) => {
-          const children = section.querySelectorAll('.section-intro, .split-copy, .split-media, .feature-card, .service-detail, .resource-card, .faq-item, .contact-card, .contact-form, .stat, .cta-band > *');
-          if (!children.length) return;
-
-          gsap.fromTo(children,
-            { y: 46, opacity: 0 },
-            {
-              y: 0,
-              opacity: 1,
-              duration: .8,
-              stagger: .055,
-              ease: 'power3.out',
-              scrollTrigger: {
-                trigger: section,
-                start: index === 0 ? 'top 82%' : 'top 88%',
-                end: 'top 52%',
-                scrub: 0.7,
-                invalidateOnRefresh: true
-              }
-            }
-          );
-        });
-
-        /* Long-form images drift gently against the page rather than jumping. */
-        $$('.internal-page .split-media, .internal-page .page-hero-media, .internal-page .resource-media').forEach((media) => {
-          gsap.to(media, {
-            y: -18,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: media,
-              start: 'top bottom',
-              end: 'bottom top',
-              scrub: 1.15
-            }
-          });
-        });
-
-        /* Service rows and cards have a stronger product/editorial rhythm. */
-        $$('.internal-page .service-detail, .internal-page .resource-card').forEach((card, i) => {
-          gsap.fromTo(card,
-            { x: i % 2 ? 28 : -28, y: 35, opacity: .1, scale: .985 },
-            {
-              x: 0, y: 0, opacity: 1, scale: 1,
-              ease: 'power2.out',
-              scrollTrigger: {
-                trigger: card,
-                start: 'top 92%',
-                end: 'top 64%',
-                scrub: 1,
-                invalidateOnRefresh: true
-              }
-            }
-          );
-        });
-
-        /* Feature cards rise in a measured sequence. */
-        $$('.internal-page .feature-grid').forEach((grid) => {
-          const cards = [...grid.children];
-          gsap.fromTo(cards,
-            { y: 55, opacity: .08 },
-            {
-              y: 0, opacity: 1,
-              stagger: .09,
-              ease: 'power3.out',
-              scrollTrigger: {
-                trigger: grid,
-                start: 'top 88%',
-                end: 'top 55%',
-                scrub: .8
-              }
-            }
-          );
-        });
-
-        /* Dark sections get a slower transition to make the page feel cinematic. */
-        $$('.internal-page .dark-band').forEach((band) => {
-          gsap.fromTo(band,
-            { clipPath: 'inset(7% 0 7% 0)' },
-            { clipPath: 'inset(0% 0 0% 0)', ease: 'none', scrollTrigger: {
-              trigger: band,
-              start: 'top 92%',
-              end: 'top 58%',
-              scrub: 1
-            }}
-          );
-        });
-
-        /* Contact and login surfaces get a subtle depth lift. */
-        $$('.internal-page .contact-card, .internal-page .login-card').forEach((panel) => {
-          gsap.fromTo(panel,
-            { y: 35, scale: .975, opacity: .15 },
-            { y: 0, scale: 1, opacity: 1, ease: 'power2.out', scrollTrigger: {
-              trigger: panel,
-              start: 'top 88%',
-              end: 'top 58%',
-              scrub: 1
-            }}
-          );
-        });
-
-        /* Service detail pages get a stronger hero image depth effect. */
-        if (document.querySelector('[class*="service-"]')) {
-          const serviceHero = $('.page-hero-media');
-          if (serviceHero) {
-            gsap.to(serviceHero, {
-              backgroundPosition: 'center 56%',
-              ease: 'none',
-              scrollTrigger: {
-                trigger: '.page-hero',
-                start: 'top top',
-                end: 'bottom top',
-                scrub: 1.2
-              }
-            });
-          }
-        }
-      }
-
-      /* Accessibility / reduced motion: everything remains immediately visible. */
-      if (reduceMotion) {
-        $$('.internal-page .page-hero, .internal-page main > section, .internal-page .feature-card, .internal-page .service-detail, .internal-page .resource-card, .internal-page .faq-item').forEach(el => {
-          el.style.opacity = '1';
-          el.style.transform = 'none';
-          el.style.clipPath = 'none';
-        });
+      if (largeMotion) {
+        const internalHero=$('.page-hero');
+        const heroCopy=internalHero?.querySelector('.page-hero-grid > div:first-child');
+        const heroMedia=internalHero?.querySelector('.page-hero-media');
+        if(heroCopy) gsap.fromTo(heroCopy,{y:35,opacity:0},{y:0,opacity:1,duration:.75,ease:'power3.out',delay:.05});
+        if(heroMedia) gsap.fromTo(heroMedia,{y:35,opacity:0,scale:.98},{y:0,opacity:1,scale:1,duration:.85,ease:'power3.out',delay:.1});
       }
     }
 
     ScrollTrigger.refresh();
-  } else {
-    $$('.reveal-up').forEach(el => {el.style.opacity=1;el.style.transform='none'});
   }
 
-  if (window.Lenis && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const lenis = new Lenis({ duration: 1.05, smoothWheel: true, syncTouch: true });
+  // Lenis is intentionally limited to large desktop. Native scrolling is smoother
+  // and more reliable on touch devices and smaller screens.
+  if (window.Lenis && window.ScrollTrigger && largeMotion) {
+    const lenis = new Lenis({duration:0.8,smoothWheel:true,syncTouch:false,gestureOrientation:'vertical',wheelMultiplier:0.9});
     const raf = time => { lenis.raf(time * 1000); requestAnimationFrame(raf); };
     requestAnimationFrame(raf);
     lenis.on('scroll', ScrollTrigger.update);
   }
 
-  const form = $('.newsletter form');
-  form?.addEventListener('submit', e => {
-    e.preventDefault();
-    const input = $('input', form);
-    if (input.value.trim()) {
-      const btn = $('button', form);
-      btn.textContent = '✓';
-      input.value = '';
-      input.placeholder = 'You’re on the list';
-    }
-  });
+  const form=$('.newsletter form');
+  form?.addEventListener('submit',e=>{e.preventDefault();const input=$('input',form);if(input?.value.trim()){const btn=$('button',form);btn.textContent='✓';input.value='';input.placeholder='You’re on the list';}});
+
+  if (reduceMotion) {
+    $$('.reveal-up, .internal-page main > section, .internal-page .feature-card, .internal-page .service-detail, .internal-page .resource-card, .internal-page .faq-item').forEach(el=>{el.style.opacity='1';el.style.transform='none';el.style.clipPath='none'});
+  }
 })();
