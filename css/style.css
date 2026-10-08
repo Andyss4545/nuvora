@@ -2230,6 +2230,12 @@ button {
     backface-visibility: hidden;
   }
 
+  .hero-scene:first-child {
+    transform: translate3d(0, 0, 0);
+    z-index: 3;
+    pointer-events: auto;
+  }
+
   .hero-scene.hero-slide-active {
     transform: translate3d(0, 0, 0);
     pointer-events: auto;
@@ -2252,9 +2258,9 @@ button {
   .hero-scene-overlay {
     background: linear-gradient(
       180deg,
-      rgba(5,25,23,.08) 0%,
-      rgba(5,25,23,.28) 48%,
-      rgba(5,25,23,.78) 100%
+      rgba(5,25,23,.03) 0%,
+      rgba(5,25,23,.12) 48%,
+      rgba(5,25,23,.46) 100%
     );
   }
 
