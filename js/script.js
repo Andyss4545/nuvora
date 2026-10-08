@@ -116,67 +116,60 @@ if (shouldLoadMotion) {
       heroScenes.forEach((scene, i) => scene.classList.toggle('is-active', i === 0));
     }
 
-    /* Lightweight mobile/tablet hero slider.
-       The whole scene moves together: photography, copy, card and index.
-       No GSAP, ScrollTrigger or scroll-driven animation is used here. */
-    if (heroScenes.length && window.innerWidth <= 1024) {
-      const mobileReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let current = 0;
-      let timer = null;
 
-      heroScenes.forEach((scene, i) => {
-        scene.classList.remove('hero-slide-active', 'hero-slide-next', 'hero-slide-out');
-        scene.style.zIndex = i === 0 ? '3' : '1';
-        if (i === 0) scene.classList.add('hero-slide-active');
-        else scene.classList.add('hero-slide-next');
-      });
 
-      heroIndexes.forEach((x, i) => x.classList.toggle('active', i === 0));
+  /* MOBILE / TABLET HERO SLIDER: independent of GSAP */
+  const heroCinemaMobile = $('.hero-cinema');
+  const mobileHeroScenes = $$('.hero-scene', heroCinemaMobile || document);
+  const mobileHeroIndexes = $$('.hero-scene-index span', heroCinemaMobile || document);
 
-      if (!mobileReduced && heroScenes.length > 1) {
-        const showNextHeroScene = () => {
-          const previous = current;
-          const next = (current + 1) % heroScenes.length;
+  if (heroCinemaMobile && mobileHeroScenes.length && window.innerWidth <= 1024) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let current = 0;
+    let timer = null;
 
-          heroScenes[previous].classList.remove('hero-slide-active');
-          heroScenes[previous].classList.add('hero-slide-out');
-          heroScenes[previous].style.zIndex = '2';
+    mobileHeroScenes.forEach((scene, i) => {
+      scene.classList.remove('hero-slide-active', 'hero-slide-next', 'hero-slide-out');
+      scene.style.zIndex = i === 0 ? '3' : '1';
+      scene.classList.add(i === 0 ? 'hero-slide-active' : 'hero-slide-next');
+    });
 
-          heroScenes[next].classList.remove('hero-slide-next', 'hero-slide-out');
-          heroScenes[next].classList.add('hero-slide-active');
-          heroScenes[next].style.zIndex = '3';
+    mobileHeroIndexes.forEach((item, i) => item.classList.toggle('active', i === 0));
 
-          heroIndexes.forEach((x, i) => x.classList.toggle('active', i === next));
-          current = next;
+    if (!reduced && mobileHeroScenes.length > 1) {
+      const showNext = () => {
+        const previous = current;
+        const next = (current + 1) % mobileHeroScenes.length;
 
-          window.setTimeout(() => {
-            heroScenes[previous].classList.remove('hero-slide-out');
-            heroScenes[previous].classList.add('hero-slide-next');
-            heroScenes[previous].style.zIndex = '1';
-          }, 850);
-        };
+        mobileHeroScenes[previous].classList.remove('hero-slide-active');
+        mobileHeroScenes[previous].classList.add('hero-slide-out');
+        mobileHeroScenes[previous].style.zIndex = '2';
 
-        const startHeroSlider = () => {
-          if (!timer && !document.hidden) {
-            timer = window.setInterval(showNextHeroScene, 5500);
-          }
-        };
+        mobileHeroScenes[next].classList.remove('hero-slide-next', 'hero-slide-out');
+        mobileHeroScenes[next].classList.add('hero-slide-active');
+        mobileHeroScenes[next].style.zIndex = '3';
 
-        const stopHeroSlider = () => {
-          if (timer) {
-            window.clearInterval(timer);
-            timer = null;
-          }
-        };
+        mobileHeroIndexes.forEach((item, i) => item.classList.toggle('active', i === next));
+        current = next;
 
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) stopHeroSlider();
-          else startHeroSlider();
-        });
+        window.setTimeout(() => {
+          mobileHeroScenes[previous].classList.remove('hero-slide-out');
+          mobileHeroScenes[previous].classList.add('hero-slide-next');
+          mobileHeroScenes[previous].style.zIndex = '1';
+        }, 900);
+      };
 
-        startHeroSlider();
-      }
+      const start = () => {
+        if (!timer && !document.hidden) timer = window.setInterval(showNext, 5500);
+      };
+      const stop = () => {
+        if (timer) { window.clearInterval(timer); timer = null; }
+      };
+
+      document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+      start();
     }
+  }
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
