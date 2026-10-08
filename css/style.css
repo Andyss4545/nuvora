@@ -2202,37 +2202,59 @@ button {
 }
 
 @media (max-width: 1024px) {
-  /* Mobile/tablet: native touch scrolling. The cinematic desktop hero is intentionally disabled. */
+  /* Mobile/tablet: native touch scrolling with a lightweight hero image slider. */
   .hero-cinema {
     height: auto;
     min-height: 100svh;
   }
 
   .hero-cinema-pin {
-    height: auto;
+    height: 100svh;
     min-height: 100svh;
     position: relative;
     overflow: hidden;
   }
 
   .hero-scene {
-    position: relative;
-    inset: auto;
-    min-height: 100svh;
-    display: none;
+    position: absolute;
+    inset: 0;
+    min-height: 100%;
+    display: block;
     opacity: 1;
     visibility: visible;
     transform: none;
     will-change: auto;
+    pointer-events: none;
   }
 
-  .hero-scene:first-child {
-    display: block;
-  }
+  .hero-scene:first-child { z-index: 2; }
+  .hero-scene:not(:first-child) { z-index: 1; }
 
   .hero-scene-bg {
-    transform: none;
+    transform: translate3d(100%, 0, 0) scale(1.01);
+    will-change: transform;
+    transition: transform 0.72s cubic-bezier(.22,.61,.36,1);
+    backface-visibility: hidden;
   }
+
+  .hero-scene-bg.hero-bg-active {
+    transform: translate3d(0, 0, 0) scale(1.01);
+  }
+
+  .hero-scene-bg.hero-bg-exit {
+    transform: translate3d(-100%, 0, 0) scale(1.01);
+  }
+
+  /* Only the first scene supplies the hero copy/cards. The photography cycles underneath. */
+  .hero-scene:not(:first-child) .hero-scene-copy,
+  .hero-scene:not(:first-child) .hero-scene-card,
+  .hero-scene:not(:first-child) .hero-scene-index-value,
+  .hero-scene:not(:first-child) .hero-scene-overlay { display: none; }
+
+  .hero-scene:first-child .hero-scene-copy,
+  .hero-scene:first-child .hero-scene-card,
+  .hero-scene:first-child .hero-scene-index-value,
+  .hero-scene:first-child .hero-scene-overlay { pointer-events: auto; }
 
   .hero-scene-overlay {
     background: linear-gradient(180deg, rgba(5,25,23,.10), rgba(5,25,23,.88));
