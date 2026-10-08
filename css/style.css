@@ -2202,7 +2202,7 @@ button {
 }
 
 @media (max-width: 1024px) {
-  /* Mobile/tablet: native touch scrolling with a lightweight hero image slider. */
+  /* Mobile/tablet: touch-first hero with a lightweight scene slider. */
   .hero-cinema {
     height: auto;
     min-height: 100svh;
@@ -2215,6 +2215,7 @@ button {
     overflow: hidden;
   }
 
+  /* Each scene is a complete slide. Image + overlay + content move together. */
   .hero-scene {
     position: absolute;
     inset: 0;
@@ -2222,42 +2223,39 @@ button {
     display: block;
     opacity: 1;
     visibility: visible;
-    transform: none;
-    will-change: auto;
-    pointer-events: none;
-  }
-
-  .hero-scene:first-child { z-index: 2; }
-  .hero-scene:not(:first-child) { z-index: 1; }
-
-  .hero-scene-bg {
-    transform: translate3d(100%, 0, 0) scale(1.01);
+    transform: translate3d(100%, 0, 0);
+    transition: transform 0.82s cubic-bezier(.22,.61,.36,1);
     will-change: transform;
-    transition: transform 0.72s cubic-bezier(.22,.61,.36,1);
+    pointer-events: none;
     backface-visibility: hidden;
   }
 
-  .hero-scene-bg.hero-bg-active {
-    transform: translate3d(0, 0, 0) scale(1.01);
+  .hero-scene.hero-slide-active {
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
   }
 
-  .hero-scene-bg.hero-bg-exit {
-    transform: translate3d(-100%, 0, 0) scale(1.01);
+  .hero-scene.hero-slide-next {
+    transform: translate3d(100%, 0, 0);
   }
 
-  /* Only the first scene supplies the hero copy/cards. The photography cycles underneath. */
-  .hero-scene:not(:first-child) .hero-scene-copy,
-  .hero-scene:not(:first-child) .hero-scene-card,
-  .hero-scene:not(:first-child) .hero-scene-index-value,
-  .hero-scene:not(:first-child) .hero-scene-overlay { display: none; }
+  .hero-scene.hero-slide-out {
+    transform: translate3d(-100%, 0, 0);
+  }
 
-  .hero-scene:first-child .hero-scene-copy,
-  .hero-scene:first-child .hero-scene-card,
-  .hero-scene:first-child .hero-scene-index-value,
-  .hero-scene:first-child .hero-scene-overlay { pointer-events: auto; }
+  .hero-scene-bg {
+    transform: scale(1.01);
+    will-change: auto;
+  }
 
+  /* Keep every slide's image visible. The overlay belongs to its own slide. */
   .hero-scene-overlay {
-    background: linear-gradient(180deg, rgba(5,25,23,.10), rgba(5,25,23,.88));
+    background: linear-gradient(
+      180deg,
+      rgba(5,25,23,.08) 0%,
+      rgba(5,25,23,.28) 48%,
+      rgba(5,25,23,.78) 100%
+    );
   }
 
   .hero-scene-copy,
@@ -2608,5 +2606,17 @@ button {
     will-change: auto !important;
     transform: none !important;
     opacity: 1 !important;
+  }
+}
+
+
+@media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .hero-scene {
+    transition: none;
+    transform: translate3d(100%, 0, 0);
+  }
+
+  .hero-scene:first-child {
+    transform: translate3d(0, 0, 0);
   }
 }
