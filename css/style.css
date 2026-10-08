@@ -2201,45 +2201,41 @@ button {
   color: #fff;
 }
 
-@media (max-width: 900px) {
-  /*
-    Keep the hero cinematic on tablet/mobile.
-    The section remains tall so the sticky viewport has enough
-    scroll distance to move through all four scenes.
-  */
+@media (max-width: 1024px) {
+  /* Mobile/tablet: native touch scrolling. The cinematic desktop hero is intentionally disabled. */
   .hero-cinema {
-    height: 430vh;
-    min-height: 430vh;
+    height: auto;
+    min-height: 100svh;
   }
 
   .hero-cinema-pin {
-    height: 100vh;
+    height: auto;
     min-height: 100svh;
-    position: sticky;
-    top: 0;
+    position: relative;
     overflow: hidden;
   }
 
   .hero-scene {
-    position: absolute;
-    inset: 0;
-    min-height: 100%;
-    display: block;
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  .hero-scene.is-active {
+    position: relative;
+    inset: auto;
+    min-height: 100svh;
+    display: none;
     opacity: 1;
     visibility: visible;
+    transform: none;
+    will-change: auto;
+  }
+
+  .hero-scene:first-child {
+    display: block;
   }
 
   .hero-scene-bg {
-    transform: scale(1.03);
+    transform: none;
   }
 
   .hero-scene-overlay {
-    background: linear-gradient(180deg, rgba(5,25,23,.12), rgba(5,25,23,.88));
+    background: linear-gradient(180deg, rgba(5,25,23,.10), rgba(5,25,23,.88));
   }
 
   .hero-scene-copy,
@@ -2293,10 +2289,10 @@ button {
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 480px) {
   .hero-cinema {
-    height: 420vh;
-    min-height: 420vh;
+    height: auto;
+    min-height: 100svh;
   }
 
   .hero-cinema-pin {
@@ -2465,7 +2461,7 @@ button {
   margin: 5px 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .hero-benefits-card {
     right: 25px;
     bottom: auto;
@@ -2475,7 +2471,7 @@ button {
   .hero-main-metric { display: none; }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 480px) {
   .hero-benefits-card {
     right: 20px;
     top: 20px;
