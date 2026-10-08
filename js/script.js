@@ -116,42 +116,64 @@ if (shouldLoadMotion) {
       heroScenes.forEach((scene, i) => scene.classList.toggle('is-active', i === 0));
     }
 
-    /* Lightweight mobile/tablet hero slider. Uses only CSS transforms. */
+    /* Lightweight mobile/tablet hero slider.
+       The whole scene moves together: photography, copy, card and index.
+       No GSAP, ScrollTrigger or scroll-driven animation is used here. */
     if (heroScenes.length && window.innerWidth <= 1024) {
-      const mobileBgs = heroScenes.map(scene => scene.querySelector('.hero-scene-bg')).filter(Boolean);
       const mobileReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let current = 0;
+      let timer = null;
 
-      if (mobileBgs.length > 1 && !mobileReduced) {
-        let current = 0;
-        let timer = null;
+      heroScenes.forEach((scene, i) => {
+        scene.classList.remove('hero-slide-active', 'hero-slide-next', 'hero-slide-out');
+        scene.style.zIndex = i === 0 ? '3' : '1';
+        if (i === 0) scene.classList.add('hero-slide-active');
+        else scene.classList.add('hero-slide-next');
+      });
 
-        mobileBgs.forEach((bg, i) => {
-          bg.classList.remove('hero-bg-active', 'hero-bg-exit');
-          if (i === 0) bg.classList.add('hero-bg-active');
-        });
+      heroIndexes.forEach((x, i) => x.classList.toggle('active', i === 0));
 
-        const showNextHeroImage = () => {
+      if (!mobileReduced && heroScenes.length > 1) {
+        const showNextHeroScene = () => {
           const previous = current;
-          const next = (current + 1) % mobileBgs.length;
-          mobileBgs[previous].classList.remove('hero-bg-active');
-          mobileBgs[previous].classList.add('hero-bg-exit');
-          mobileBgs[next].classList.remove('hero-bg-exit');
-          mobileBgs[next].classList.add('hero-bg-active');
+          const next = (current + 1) % heroScenes.length;
+
+          heroScenes[previous].classList.remove('hero-slide-active');
+          heroScenes[previous].classList.add('hero-slide-out');
+          heroScenes[previous].style.zIndex = '2';
+
+          heroScenes[next].classList.remove('hero-slide-next', 'hero-slide-out');
+          heroScenes[next].classList.add('hero-slide-active');
+          heroScenes[next].style.zIndex = '3';
+
+          heroIndexes.forEach((x, i) => x.classList.toggle('active', i === next));
           current = next;
-          window.setTimeout(() => mobileBgs[previous].classList.remove('hero-bg-exit'), 750);
+
+          window.setTimeout(() => {
+            heroScenes[previous].classList.remove('hero-slide-out');
+            heroScenes[previous].classList.add('hero-slide-next');
+            heroScenes[previous].style.zIndex = '1';
+          }, 850);
         };
 
         const startHeroSlider = () => {
-          if (!timer) timer = window.setInterval(showNextHeroImage, 4800);
+          if (!timer && !document.hidden) {
+            timer = window.setInterval(showNextHeroScene, 5500);
+          }
         };
+
         const stopHeroSlider = () => {
-          if (timer) { window.clearInterval(timer); timer = null; }
+          if (timer) {
+            window.clearInterval(timer);
+            timer = null;
+          }
         };
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) stopHeroSlider();
           else startHeroSlider();
         });
+
         startHeroSlider();
       }
     }
