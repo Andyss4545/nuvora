@@ -1,3 +1,23 @@
+const shouldLoadMotion = window.innerWidth > 1024 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const loadExternalScript = (src) => new Promise((resolve, reject) => {
+  const script = document.createElement('script');
+  script.src = src;
+  script.onload = resolve;
+  script.onerror = reject;
+  document.head.appendChild(script);
+});
+
+if (shouldLoadMotion) {
+  try {
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js');
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js');
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js');
+  } catch (error) {
+    console.warn('Nuvora motion libraries could not be loaded. Falling back to native scrolling.', error);
+  }
+}
+
 (() => {
   'use strict';
   const $ = (s, c = document) => c.querySelector(s);
@@ -45,7 +65,7 @@
   };
   steps.forEach((step, i) => step.addEventListener('click', () => activateStep(i)));
 
-  if (window.gsap && window.ScrollTrigger) {
+  if (window.gsap && window.ScrollTrigger && window.innerWidth > 1024) {
     gsap.registerPlugin(ScrollTrigger);
 
     gsap.utils.toArray('.reveal-up').forEach(el => {
@@ -57,7 +77,7 @@
     const heroScenes = $$('.hero-scene', heroCinema || document);
     const heroIndexes = $$('.hero-scene-index span', heroCinema || document);
 
-    if (heroCinema && heroScenes.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (heroCinema && heroScenes.length && window.innerWidth > 1024 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const heroTl = gsap.timeline({
         scrollTrigger: {
           trigger: heroCinema,
@@ -109,7 +129,7 @@
     const storyVisual = $('.story-visual');
     const storyScenes = $$('.story-scene');
 
-    if (story && storyStage && !reduceMotion && window.innerWidth > 750) {
+    if (story && storyStage && !reduceMotion && window.innerWidth > 1024) {
       const storyTl = gsap.timeline({
         scrollTrigger: {
           trigger: story,
@@ -159,9 +179,10 @@
         scrub: 1,
         onUpdate: self => {
           const index = Math.min(3, Math.floor(self.progress * 4));
-          activateStep(index);
-          if (storyCopy) gsap.to(storyCopy, { y: self.progress * -28, duration: .2, overwrite: true });
-          if (storyVisual) gsap.to(storyVisual, { y: self.progress * 18, duration: .2, overwrite: true });
+          if (activateStep._last !== index) {
+            activateStep(index);
+            activateStep._last = index;
+          }
         }
       });
     } else if (storyScenes.length) {
@@ -525,7 +546,7 @@
     $$('.reveal-up').forEach(el => {el.style.opacity=1;el.style.transform='none'});
   }
 
-  if (window.Lenis && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (window.Lenis && window.ScrollTrigger && window.innerWidth > 1024 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const lenis = new Lenis({ duration: 1.05, smoothWheel: true, syncTouch: true });
     const raf = time => { lenis.raf(time * 1000); requestAnimationFrame(raf); };
     requestAnimationFrame(raf);
